@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>X Spaces Companion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --x-blue: #1D9BF0;
+            --x-blue-hover: #1A8CD8;
+            --x-bg: #000000;
+            --x-border: #2F3336;
+            --x-gray: #71767B;
+            --x-light-bg: #16181C;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--x-bg);
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--x-border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--x-gray); }
+
+        .border-x-gray { border-color: var(--x-border); }
+        .text-x-gray { color: var(--x-gray); }
+        .bg-x-light { background-color: var(--x-light-bg); }
+        .text-x-blue { color: var(--x-blue); }
+        .bg-x-blue { background-color: var(--x-blue); }
+        .hover\:bg-x-blue-hover:hover { background-color: var(--x-blue-hover); }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-screen w-screen flex justify-center bg-gray-900 overflow-hidden sm:p-4 md:p-8">
+
+    <div class="w-full h-full max-w-lg bg-black flex flex-col sm:border border-x-gray sm:rounded-2xl relative shadow-2xl overflow-hidden">
+        
+        <!-- Status Toast -->
+        <div id="statusToast" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-x-blue text-white px-4 py-2 rounded-full text-sm font-medium z-[60] transition-opacity duration-300 opacity-0 pointer-events-none shadow-lg whitespace-nowrap">
+            Connecting...
+        </div>
+
+        <!-- Custom User Action Modal -->
+        <div id="userActionModal" class="hidden absolute inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+            <div class="bg-x-light border border-x-gray p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+                <h3 id="modalUserName" class="font-bold text-xl mb-1 text-center">Manage User</h3>
+                <p class="text-x-gray text-sm text-center mb-6">Change this user's chat permissions.</p>
+                <button id="modalActionBtn" class="w-full bg-x-blue hover:bg-x-blue-hover text-white py-3 rounded-full font-bold mb-3 transition">Promote to Speaker</button>
+                <button id="modalCancelBtn" class="w-full bg-transparent hover:bg-gray-900 border border-x-gray text-white py-3 rounded-full font-bold transition">Cancel</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 1: Login -->
+        <div id="loginScreen" class="flex-1 flex flex-col items-center justify-center p-8 z-20">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="w-16 h-16 fill-current text-white mb-10"><g><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.008 5.925H5.078z"></path></g></svg>
+            <h1 class="text-3xl font-bold mb-2 text-center">Happening now</h1>
+            <p class="text-x-gray mb-10 text-center">Join the conversation alongside your X Spaces.</p>
+            
+            <button id="loginBtn" class="w-full flex items-center justify-center bg-white text-black font-bold rounded-full py-3.5 px-6 hover:bg-gray-200 transition shadow-sm">
+                <svg viewBox="0 0 24 24" class="w-5 h-5 mr-3 fill-current" aria-hidden="true"><g><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.008 5.925H5.078z"></path></g></svg>
+                Sign in with X
+            </button>
+        </div>
+
+        <!-- SCREEN 2: Dashboard -->
+        <div id="dashboardScreen" class="hidden flex-1 flex flex-col z-10">
+            <header class="flex items-center justify-between p-4 border-b border-x-gray">
+                <div class="flex items-center">
+                    <img id="dashAvatar" src="" class="w-8 h-8 rounded-full mr-3 object-cover border border-x-gray">
+                    <h2 class="font-bold text-xl">Dashboard</h2>
+                </div>
+                <button id="logoutBtn" class="text-sm font-medium text-white px-3 py-1.5 rounded-full hover:bg-x-light transition border border-transparent">
+                    Log out
+                </button>
+            </header>
+
+            <div class="p-6 flex-1 overflow-y-auto">
+                <h3 class="text-2xl font-bold mb-2">Connect to a Space</h3>
+                <p class="text-x-gray text-sm mb-6">Paste the link of an active X Space to join the companion chat.</p>
+
+                <div class="space-y-4">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-x-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        </div>
+                        <input type="text" id="spaceUrlInput" placeholder="Space link or ID (e.g. 1eaJbg...)" class="w-full bg-black border border-x-gray rounded-lg pl-10 pr-4 py-3.5 text-white focus:outline-none focus:border-x-blue focus:ring-1 focus:ring-x-blue transition" autocomplete="off">
+                    </div>
+                    
+                    <button id="connectSpaceBtn" class="w-full bg-x-blue text-white font-bold rounded-full py-3.5 hover:bg-x-blue-hover transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Join Chat Room
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: Chat Room -->
+        <div id="chatScreen" class="hidden flex-1 flex flex-col z-10 h-full overflow-hidden relative">
+            <!-- Header -->
+            <header class="flex items-center justify-between p-3 border-b border-x-gray bg-black bg-opacity-90 backdrop-blur-md z-20 flex-shrink-0">
+                <div class="flex items-center overflow-hidden">
+                    <button id="leaveChatBtn" class="p-2 mr-2 rounded-full hover:bg-x-light transition group">
+                        <svg class="w-5 h-5 text-white group-hover:text-x-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    </button>
+                    <div>
+                        <h1 class="font-bold text-sm sm:text-base leading-tight truncate">Companion Chat</h1>
+                        <p id="chatSpaceIdDisplay" class="text-xs text-x-gray truncate">ID: ...</p>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="px-3 py-1 bg-green-500 bg-opacity-10 text-green-500 rounded-full text-xs font-bold uppercase tracking-wider flex items-center border border-green-500 border-opacity-20 whitespace-nowrap ml-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></span> Live
+                    </div>
+                    
+                    <!-- Host Moderation Button & Menu -->
+                    <div class="relative ml-2">
+                        <button id="modBtn" class="hidden p-2 rounded-full hover:bg-x-light transition text-x-gray hover:text-white" title="Host Controls">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </button>
+                        <div id="modMenu" class="hidden absolute right-0 top-10 w-56 bg-black border border-x-gray rounded-xl shadow-2xl z-50 overflow-hidden text-sm">
+                            <div class="px-4 py-2 border-b border-x-gray text-xs font-bold text-x-gray uppercase bg-gray-900">Chat Permissions</div>
+                            <button id="modModeOpen" class="w-full text-left px-4 py-3 hover:bg-x-light text-white flex justify-between items-center group">
+                                Everyone
+                                <svg class="w-4 h-4 text-x-blue hidden group-data-[active=true]:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            </button>
+                            <button id="modModeSpeakers" class="w-full text-left px-4 py-3 hover:bg-x-light text-white flex justify-between items-center group">
+                                Speakers Only
+                                <svg class="w-4 h-4 text-x-blue hidden group-data-[active=true]:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            </button>
+                            <button id="modModeHost" class="w-full text-left px-4 py-3 hover:bg-x-light text-white flex justify-between items-center group">
+                                Hosts Only
+                                <svg class="w-4 h-4 text-x-blue hidden group-data-[active=true]:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            </button>
+                            <div class="h-px w-full bg-x-gray my-1 opacity-50"></div>
+                            <button id="modModeEnded" class="w-full text-left px-4 py-3 hover:bg-red-900 hover:bg-opacity-30 text-red-500 font-bold group">
+                                End Chat
+                                <svg class="w-4 h-4 text-red-500 hidden group-data-[active=true]:block float-right mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Message Feed -->
+            <div id="messageFeed" class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar pb-2">
+                <!-- Messages injected here -->
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-3 border-t border-x-gray bg-black flex items-end space-x-3 flex-shrink-0 relative">
+                <img id="chatAvatar" src="" class="w-9 h-9 rounded-full object-cover border border-x-gray mb-1 hidden sm:block">
+                
+                <div class="flex-1 bg-x-light border border-transparent rounded-2xl flex items-end transition focus-within:border-x-blue focus-within:bg-black">
+                    <textarea id="messageInput" rows="1" placeholder="Add to the conversation..." class="flex-1 bg-transparent px-4 py-3 text-white focus:outline-none resize-none max-h-32 text-sm leading-relaxed" style="min-height: 44px;"></textarea>
+                </div>
+                
+                <button id="sendBtn" class="p-2.5 rounded-full bg-x-blue text-white hover:bg-x-blue-hover transition disabled:opacity-50 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed flex-shrink-0 mb-0.5" disabled>
+                    <svg viewBox="0 0 24 24" class="w-5 h-5 fill-current" aria-hidden="true"><path d="M2.504 21.866l.526-2.108C3.04 19.719 4 15.823 4 12s-.96-7.719-.97-7.757l-.527-2.109L22.236 12 2.504 21.866zM5.981 13c-.072 1.962-.34 3.833-.583 5.183L17.764 12 5.398 5.818c.242 1.349.51 3.221.583 5.183H10v2H5.981z"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-analytics.js";
+        import { getAuth, signInAnonymously, TwitterAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQjv8Bewvo-J3d7cp8UjRfqx0yUBNhXAY",
+            authDomain: "x-companion-b5c60.firebaseapp.com",
+            databaseURL: "https://x-companion-b5c60-default-rtdb.firebaseio.com",
+            projectId: "x-companion-b5c60",
+            storageBucket: "x-companion-b5c60.firebasestorage.app",
+            messagingSenderId: "674098678127",
+            appId: "1:674098678127:web:e0ef5fe76481c43e50409a",
+            measurementId: "G-8GVE5DZ9N0"
+        };
+
+        // Handle strict environment constraints
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'x-spaces-companion';
+        
+        let app, db, auth, analytics;
+        let currentUser = null;
+        let userProfile = null;
+        let unsubscribeMessages = null;
+        let unsubscribeSpace = null;
+        
+        // Room State
+        let currentSpaceId = "";
+        let isHost = false;
+        let currentChatMode = "open";
+        let currentHostId = null;
+        let currentSpeakers = [];
+        let lastMessages = []; 
+        let selectedUserIdForAction = null; 
+
+        // DOM Elements
+        const screens = { login: document.getElementById('loginScreen'), dashboard: document.getElementById('dashboardScreen'), chat: document.getElementById('chatScreen') };
+        const toast = document.getElementById('statusToast');
+        const spaceUrlInput = document.getElementById('spaceUrlInput');
+        const connectSpaceBtn = document.getElementById('connectSpaceBtn');
+        const messageFeed = document.getElementById('messageFeed');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        
+        // Mod Elements
+        const modBtn = document.getElementById('modBtn');
+        const modMenu = document.getElementById('modMenu');
+        const modModeOpen = document.getElementById('modModeOpen');
+        const modModeSpeakers = document.getElementById('modModeSpeakers');
+        const modModeHost = document.getElementById('modModeHost');
+        const modModeEnded = document.getElementById('modModeEnded');
+
+        const userActionModal = document.getElementById('userActionModal');
+        const modalUserName = document.getElementById('modalUserName');
+        const modalActionBtn = document.getElementById('modalActionBtn');
+        const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+        // ---- Utilities ----
+        function showToast(msg, isError = false) {
+            toast.textContent = msg;
+            toast.className = `absolute top-4 left-1/2 transform -translate-x-1/2 px-5 py-2.5 rounded-full text-sm font-medium z-[100] transition-opacity duration-300 shadow-lg whitespace-nowrap ${isError ? 'bg-red-500 text-white' : 'bg-x-blue text-white'}`;
+            toast.style.opacity = '1';
+            setTimeout(() => { toast.style.opacity = '0'; }, 3500);
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div'); div.textContent = str; return div.innerHTML;
+        }
+
+        function generateMockProfile(uid) {
+            const hash = Array.from(uid).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const firstNames = ["Crypto", "Tech", "Web3", "Alpha", "Doge", "Based", "Anon", "Builder", "Satoshi", "Vitalik"];
+            const lastNames = ["Whale", "Bro", "Chad", "Dev", "Maxi", "Enjoyer", "User", "Punk", "Diamond", "Hands"];
+            const first = firstNames[hash % firstNames.length];
+            const last = lastNames[(hash * 2) % lastNames.length];
+            const colors = ["1D9BF0", "FFAD1F", "F45D22", "794BC4", "17BF63", "E0245E"];
+            const color = colors[hash % colors.length];
+            return {
+                displayName: `${first} ${last}`,
+                handle: `@${first.toLowerCase()}${last.toLowerCase()}${hash % 99}`,
+                photoURL: `https://placehold.co/100x100/${color}/FFFFFF?text=${first.charAt(0)}${last.charAt(0)}`
+            };
+        }
+
+        // ---- Init Firebase ----
+        function initFirebase() {
+            try {
+                if (!app) {
+                    app = initializeApp(firebaseConfig);
+                    analytics = getAnalytics(app);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                }
+                return true;
+            } catch (err) { 
+                console.error(err); 
+                return false; 
+            }
+        }
+
+        // ---- Auth Flow ----
+        document.getElementById('loginBtn').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.innerHTML = 'Authenticating...'; btn.disabled = true;
+            
+            if (!auth) {
+                const initialized = initFirebase();
+                if (!initialized) {
+                    showToast("Config missing. Check your Firebase settings.", true);
+                    btn.innerHTML = 'Sign in with X'; btn.disabled = false;
+                    return;
+                }
+            }
+
+            try {
+                // Launch the real X (Twitter) authentication popup
+                const provider = new TwitterAuthProvider();
+                const result = await signInWithPopup(auth, provider);
+                
+                currentUser = result.user;
+                
+                // Extract real X profile data
+                const screenName = result._tokenResponse?.screenName || currentUser.displayName.replace(/\s+/g, '').toLowerCase();
+                
+                userProfile = {
+                    displayName: currentUser.displayName || "X User",
+                    handle: `@${screenName}`,
+                    photoURL: currentUser.photoURL ? currentUser.photoURL.replace('_normal', '') : 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+                };
+                
+                document.getElementById('dashAvatar').src = userProfile.photoURL;
+                document.getElementById('chatAvatar').src = userProfile.photoURL;
+                
+                Object.values(screens).forEach(s => s.classList.replace('flex', 'hidden'));
+                screens.dashboard.classList.replace('hidden', 'flex');
+                showToast(`Welcome, ${userProfile.displayName}`);
+            } catch (err) {
+                console.error("Auth Error:", err); 
+                
+                if (err.code === 'auth/unauthorized-domain') {
+                    const currentDomain = window.location.hostname;
+                    showToast(`Add "${currentDomain}" to Authorized Domains in Firebase`, true);
+                    alert(`Firebase blocked the login because this domain is not whitelisted.\n\nGo to Firebase Console -> Authentication -> Settings -> Authorized Domains and add:\n\n${currentDomain}`);
+                } else {
+                    showToast(`Auth failed: ${err.message}`, true);
+                }
+            } finally {
+                btn.innerHTML = 'Sign in with X'; btn.disabled = false;
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if (auth) await signOut(auth);
+            currentUser = null;
+            Object.values(screens).forEach(s => s.classList.replace('flex', 'hidden'));
+            screens.login.classList.replace('hidden', 'flex');
+        });
+
+        // ---- Space Joining ----
+        spaceUrlInput.addEventListener('input', () => { connectSpaceBtn.disabled = spaceUrlInput.value.trim().length === 0; });
+        
+        connectSpaceBtn.addEventListener('click', async () => {
+            let inputId = spaceUrlInput.value.trim();
+            if (inputId.includes('/spaces/')) {
+                inputId = inputId.split('/spaces/')[1].split('?')[0].split('/')[0];
+            }
+            if (inputId.length < 4) { showToast("Invalid Space ID", true); return; }
+            
+            currentSpaceId = inputId;
+            connectSpaceBtn.innerHTML = 'Connecting...'; connectSpaceBtn.disabled = true;
+
+            try {
+                if (!currentUser) return;
+                
+                // Using exact valid database structure: artifacts/{appId}/public/data/{collection}
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'x_spaces_companion_rooms', currentSpaceId);
+                const roomSnap = await getDoc(roomRef);
+
+                if (!roomSnap.exists()) {
+                    await setDoc(roomRef, { hostId: currentUser.uid, chatMode: 'open', speakers: [], createdAt: Date.now() });
+                }
+
+                document.getElementById('chatSpaceIdDisplay').textContent = `ID: ${currentSpaceId}`;
+                Object.values(screens).forEach(s => s.classList.replace('flex', 'hidden'));
+                screens.chat.classList.replace('hidden', 'flex');
+                
+                startListeningToSpace();
+                startListeningToMessages();
+            } catch (err) {
+                console.error(err); showToast("Failed to join room.", true);
+            } finally {
+                connectSpaceBtn.innerHTML = 'Join Chat Room'; connectSpaceBtn.disabled = false;
+            }
+        });
+
+        // ---- Room Moderation Logic ----
+        function startListeningToSpace() {
+            if (!currentUser || !currentSpaceId) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'x_spaces_companion_rooms', currentSpaceId);
+            
+            unsubscribeSpace = onSnapshot(roomRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    currentChatMode = data.chatMode || 'open';
+                    currentHostId = data.hostId;
+                    currentSpeakers = data.speakers || [];
+                    isHost = (currentUser.uid === currentHostId);
+                    
+                    modBtn.classList.toggle('hidden', !isHost);
+                    
+                    updateChatUIForMode();
+                    updateModMenuSelection();
+                    if(lastMessages.length > 0) renderMessages(lastMessages); 
+                }
+            }, (error) => {
+                console.error("Room sync error:", error);
+            });
+        }
+
+        function updateChatUIForMode() {
+            messageInput.disabled = false;
+            const isSpeaker = currentSpeakers.includes(currentUser.uid);
+            
+            if (currentChatMode === 'ended') {
+                messageInput.disabled = true; messageInput.placeholder = "Chat has ended."; sendBtn.disabled = true;
+            } else if (currentChatMode === 'hosts_only' && !isHost) {
+                messageInput.disabled = true; messageInput.placeholder = "Chat is restricted to Hosts."; sendBtn.disabled = true;
+            } else if (currentChatMode === 'speakers_only' && !isHost && !isSpeaker) {
+                messageInput.disabled = true; messageInput.placeholder = "Only Speakers can chat."; sendBtn.disabled = true;
+            } else {
+                messageInput.placeholder = "Add to the conversation...";
+                sendBtn.disabled = messageInput.value.trim() === '';
+            }
+        }
+
+        function updateModMenuSelection() {
+            modModeOpen.setAttribute('data-active', currentChatMode === 'open');
+            modModeSpeakers.setAttribute('data-active', currentChatMode === 'speakers_only');
+            modModeHost.setAttribute('data-active', currentChatMode === 'hosts_only');
+            modModeEnded.setAttribute('data-active', currentChatMode === 'ended');
+        }
+
+        modBtn.addEventListener('click', (e) => { e.stopPropagation(); modMenu.classList.toggle('hidden'); });
+        document.addEventListener('click', (e) => { if (!modBtn.contains(e.target) && !modMenu.contains(e.target)) modMenu.classList.add('hidden'); });
+
+        async function setChatMode(mode) {
+            if (!isHost || !currentUser) return;
+            modMenu.classList.add('hidden');
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'x_spaces_companion_rooms', currentSpaceId);
+            await updateDoc(roomRef, { chatMode: mode });
+        }
+
+        modModeOpen.addEventListener('click', () => setChatMode('open'));
+        modModeSpeakers.addEventListener('click', () => setChatMode('speakers_only'));
+        modModeHost.addEventListener('click', () => setChatMode('hosts_only'));
+        modModeEnded.addEventListener('click', () => setChatMode('ended'));
+
+        // ---- Chat Feed Logic ----
+        function startListeningToMessages() {
+            if (!currentUser || !currentSpaceId) return;
+            // No compound queries allowed per rules, fetch all and filter in memory
+            const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'x_spaces_chat_messages');
+
+            unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
+                const allMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // In-memory filter & sort
+                const roomMessages = allMessages
+                    .filter(msg => msg.spaceId === currentSpaceId)
+                    .sort((a, b) => a.timestamp - b.timestamp);
+                
+                lastMessages = roomMessages;
+                renderMessages(roomMessages);
+            }, (error) => {
+                console.error("Message sync error:", error);
+            });
+        }
+
+        function renderMessages(messages) {
+            if (messages.length === 0) {
+                messageFeed.innerHTML = `<div class="flex flex-col h-full items-center justify-center text-center p-6 text-x-gray">No messages yet. Be the first to start the conversation!</div>`;
+                return;
+            }
+
+            const isScrolledToBottom = messageFeed.scrollHeight - messageFeed.clientHeight <= messageFeed.scrollTop + 50;
+            messageFeed.innerHTML = ''; 
+
+            messages.forEach(msg => {
+                const msgEl = document.createElement('div');
+                msgEl.className = "flex items-start space-x-3 w-full group";
+                
+                let badgeHtml = '';
+                if (msg.senderId === currentHostId) {
+                    badgeHtml = `<span class="bg-x-blue text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Host</span>`;
+                } else if (currentSpeakers.includes(msg.senderId)) {
+                    badgeHtml = `<span class="bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Speaker</span>`;
+                }
+
+                msgEl.innerHTML = `
+                    <img src="${escapeHTML(msg.senderPhoto)}" data-action-uid="${msg.senderId}" data-action-name="${escapeHTML(msg.senderName)}" class="user-avatar w-10 h-10 rounded-full object-cover flex-shrink-0 border border-x-gray ${isHost && msg.senderId !== currentUser.uid ? 'cursor-pointer hover:opacity-80 ring-2 ring-transparent hover:ring-x-blue transition' : ''}">
+                    <div class="flex-1 min-w-0 pb-1">
+                        <div class="flex items-center space-x-1.5 flex-wrap">
+                            <span class="font-bold text-white text-[15px]">${escapeHTML(msg.senderName)}</span>
+                            ${badgeHtml}
+                            <span class="text-x-gray text-[15px] truncate">${escapeHTML(msg.senderHandle)}</span>
+                            <span class="text-x-gray text-sm">·</span>
+                            <span class="text-x-gray text-[15px]">${new Date(msg.timestamp).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>
+                        </div>
+                        <div class="text-white text-[15px] leading-snug mt-0.5 break-words whitespace-pre-wrap">${escapeHTML(msg.text)}</div>
+                    </div>
+                `;
+                messageFeed.appendChild(msgEl);
+            });
+
+            if (isScrolledToBottom) messageFeed.scrollTop = messageFeed.scrollHeight;
+        }
+
+        // Host Promotes/Demotes Users
+        messageFeed.addEventListener('click', (e) => {
+            if (!isHost) return;
+            const target = e.target.closest('.user-avatar');
+            if (!target) return;
+
+            const uid = target.getAttribute('data-action-uid');
+            const name = target.getAttribute('data-action-name');
+            if (!uid || uid === currentUser.uid) return;
+
+            selectedUserIdForAction = uid;
+            modalUserName.textContent = `Manage ${name}`;
+            
+            if (currentSpeakers.includes(uid)) {
+                modalActionBtn.textContent = 'Demote to Listener';
+                modalActionBtn.classList.replace('bg-x-blue', 'bg-red-600');
+                modalActionBtn.classList.replace('hover:bg-x-blue-hover', 'hover:bg-red-700');
+            } else {
+                modalActionBtn.textContent = 'Promote to Speaker';
+                modalActionBtn.classList.replace('bg-red-600', 'bg-x-blue');
+                modalActionBtn.classList.replace('hover:bg-red-700', 'hover:bg-x-blue-hover');
+            }
+            
+            userActionModal.classList.remove('hidden');
+        });
+
+        modalCancelBtn.addEventListener('click', () => userActionModal.classList.add('hidden'));
+        
+        modalActionBtn.addEventListener('click', async () => {
+            if (!selectedUserIdForAction || !currentSpaceId || !currentUser) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'x_spaces_companion_rooms', currentSpaceId);
+            
+            let newSpeakers = [...currentSpeakers];
+            if (newSpeakers.includes(selectedUserIdForAction)) {
+                newSpeakers = newSpeakers.filter(id => id !== selectedUserIdForAction);
+            } else {
+                newSpeakers.push(selectedUserIdForAction);
+            }
+            
+            userActionModal.classList.add('hidden');
+            try {
+                await updateDoc(roomRef, { speakers: newSpeakers });
+                showToast("User roles updated!");
+            } catch (err) {
+                console.error(err); showToast("Failed to update user.", true);
+            }
+        });
+
+
+        // ---- Input & Sending ----
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            sendBtn.disabled = this.value.trim() === '';
+            sendBtn.classList.toggle('text-white', !sendBtn.disabled);
+            sendBtn.classList.toggle('text-gray-500', sendBtn.disabled);
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+        });
+        sendBtn.addEventListener('click', sendMsg);
+
+        async function sendMsg() {
+            if (sendBtn.disabled) return;
+            const text = messageInput.value.trim();
+            if (!text || !currentUser) return;
+
+            messageInput.value = ''; messageInput.style.height = 'auto';
+            sendBtn.disabled = true; sendBtn.classList.replace('text-white', 'text-gray-500');
+            if (window.innerWidth > 640) messageInput.focus();
+
+            try {
+                const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'x_spaces_chat_messages');
+                await addDoc(messagesRef, {
+                    spaceId: currentSpaceId, 
+                    text: text,
+                    senderId: currentUser.uid, 
+                    senderName: userProfile.displayName,
+                    senderHandle: userProfile.handle, 
+                    senderPhoto: userProfile.photoURL,
+                    timestamp: Date.now()
+                });
+                setTimeout(() => messageFeed.scrollTop = messageFeed.scrollHeight, 100);
+            } catch (error) {
+                console.error(error); showToast("Failed to send.", true);
+            }
+        }
+
+        // ---- Leave Chat ----
+        document.getElementById('leaveChatBtn').addEventListener('click', () => {
+            if (unsubscribeMessages) unsubscribeMessages();
+            if (unsubscribeSpace) unsubscribeSpace();
+            currentSpaceId = ""; isHost = false; modMenu.classList.add('hidden');
+            Object.values(screens).forEach(s => s.classList.replace('flex', 'hidden'));
+            screens.dashboard.classList.replace('hidden', 'flex');
+        });
+
+        // Initialize Firebase on load if config exists
+        window.onload = () => initFirebase();
+    </script>
+</body>
+</html>
