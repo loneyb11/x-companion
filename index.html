@@ -173,7 +173,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-analytics.js";
-        import { getAuth, signInAnonymously, TwitterAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { getAuth, TwitterAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
         // Your web app's Firebase configuration
@@ -187,10 +187,10 @@
             appId: "1:674098678127:web:e0ef5fe76481c43e50409a",
             measurementId: "G-8GVE5DZ9N0"
         };
-
+        
         // Handle strict environment constraints
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'x-spaces-companion';
-        
+
         let app, db, auth, analytics;
         let currentUser = null;
         let userProfile = null;
@@ -199,8 +199,8 @@
         
         // Room State
         let currentSpaceId = "";
-        let isHost = false;
-        let currentChatMode = "open";
+        let isHost = false; // Granted to room creator OR super admin
+        let currentChatMode = "speakers_only";
         let currentHostId = null;
         let currentSpeakers = [];
         let lastMessages = []; 
@@ -240,21 +240,6 @@
             const div = document.createElement('div'); div.textContent = str; return div.innerHTML;
         }
 
-        function generateMockProfile(uid) {
-            const hash = Array.from(uid).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const firstNames = ["Crypto", "Tech", "Web3", "Alpha", "Doge", "Based", "Anon", "Builder", "Satoshi", "Vitalik"];
-            const lastNames = ["Whale", "Bro", "Chad", "Dev", "Maxi", "Enjoyer", "User", "Punk", "Diamond", "Hands"];
-            const first = firstNames[hash % firstNames.length];
-            const last = lastNames[(hash * 2) % lastNames.length];
-            const colors = ["1D9BF0", "FFAD1F", "F45D22", "794BC4", "17BF63", "E0245E"];
-            const color = colors[hash % colors.length];
-            return {
-                displayName: `${first} ${last}`,
-                handle: `@${first.toLowerCase()}${last.toLowerCase()}${hash % 99}`,
-                photoURL: `https://placehold.co/100x100/${color}/FFFFFF?text=${first.charAt(0)}${last.charAt(0)}`
-            };
-        }
-
         // ---- Init Firebase ----
         function initFirebase() {
             try {
@@ -286,13 +271,11 @@
             }
 
             try {
-                // Launch the real X (Twitter) authentication popup
                 const provider = new TwitterAuthProvider();
                 const result = await signInWithPopup(auth, provider);
                 
                 currentUser = result.user;
                 
-                // Extract real X profile data
                 const screenName = result._tokenResponse?.screenName || currentUser.displayName.replace(/\s+/g, '').toLowerCase();
                 
                 userProfile = {
@@ -312,8 +295,10 @@
                 
                 if (err.code === 'auth/unauthorized-domain') {
                     const currentDomain = window.location.hostname;
-                    showToast(`Add "${currentDomain}" to Authorized Domains in Firebase`, true);
-                    alert(`Firebase blocked the login because this domain is not whitelisted.\n\nGo to Firebase Console -> Authentication -> Settings -> Authorized Domains and add:\n\n${currentDomain}`);
+                    showToast(`Domain Blocked! See alert for details.`, true);
+                    alert(`Firebase blocked the login. Please add this exact domain to Firebase Authorized Domains:\n\n${currentDomain}`);
+                } else if (err.code === 'auth/invalid-credential') {
+                    showToast(`API Key Error. Check your guide!`, true);
                 } else {
                     showToast(`Auth failed: ${err.message}`, true);
                 }
@@ -345,12 +330,12 @@
             try {
                 if (!currentUser) return;
                 
-                // Using exact valid database structure: artifacts/{appId}/public/data/{collection}
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'x_spaces_companion_rooms', currentSpaceId);
                 const roomSnap = await getDoc(roomRef);
 
                 if (!roomSnap.exists()) {
-                    await setDoc(roomRef, { hostId: currentUser.uid, chatMode: 'open', speakers: [], createdAt: Date.now() });
+                    // Changed default creation to speakers_only to lock out listeners by default
+                    await setDoc(roomRef, { hostId: currentUser.uid, chatMode: 'speakers_only', speakers: [], createdAt: Date.now() });
                 }
 
                 document.getElementById('chatSpaceIdDisplay').textContent = `ID: ${currentSpaceId}`;
@@ -374,10 +359,13 @@
             unsubscribeSpace = onSnapshot(roomRef, (snapshot) => {
                 if (snapshot.exists()) {
                     const data = snapshot.data();
-                    currentChatMode = data.chatMode || 'open';
+                    currentChatMode = data.chatMode || 'speakers_only';
                     currentHostId = data.hostId;
                     currentSpeakers = data.speakers || [];
-                    isHost = (currentUser.uid === currentHostId);
+                    
+                    // Super Admin Check - Grants @benloney permanent host controls
+                    const isSuperAdmin = userProfile && userProfile.handle && userProfile.handle.toLowerCase() === '@benloney';
+                    isHost = (currentUser.uid === currentHostId) || isSuperAdmin;
                     
                     modBtn.classList.toggle('hidden', !isHost);
                     
@@ -394,7 +382,7 @@
             messageInput.disabled = false;
             const isSpeaker = currentSpeakers.includes(currentUser.uid);
             
-            if (currentChatMode === 'ended') {
+            if (currentChatMode === 'ended' && !isHost) {
                 messageInput.disabled = true; messageInput.placeholder = "Chat has ended."; sendBtn.disabled = true;
             } else if (currentChatMode === 'hosts_only' && !isHost) {
                 messageInput.disabled = true; messageInput.placeholder = "Chat is restricted to Hosts."; sendBtn.disabled = true;
@@ -431,12 +419,10 @@
         // ---- Chat Feed Logic ----
         function startListeningToMessages() {
             if (!currentUser || !currentSpaceId) return;
-            // No compound queries allowed per rules, fetch all and filter in memory
             const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'x_spaces_chat_messages');
 
             unsubscribeMessages = onSnapshot(messagesRef, (snapshot) => {
                 const allMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // In-memory filter & sort
                 const roomMessages = allMessages
                     .filter(msg => msg.spaceId === currentSpaceId)
                     .sort((a, b) => a.timestamp - b.timestamp);
@@ -450,7 +436,7 @@
 
         function renderMessages(messages) {
             if (messages.length === 0) {
-                messageFeed.innerHTML = `<div class="flex flex-col h-full items-center justify-center text-center p-6 text-x-gray">No messages yet. Be the first to start the conversation!</div>`;
+                messageFeed.innerHTML = `<div class="flex flex-col h-full items-center justify-center text-center p-6 text-x-gray">No messages yet. The host has locked this chat to Speakers only.</div>`;
                 return;
             }
 
@@ -462,14 +448,16 @@
                 msgEl.className = "flex items-start space-x-3 w-full group";
                 
                 let badgeHtml = '';
-                if (msg.senderId === currentHostId) {
+                const isMsgSuperAdmin = msg.senderHandle && msg.senderHandle.toLowerCase() === '@benloney';
+                
+                if (msg.senderId === currentHostId || isMsgSuperAdmin) {
                     badgeHtml = `<span class="bg-x-blue text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Host</span>`;
                 } else if (currentSpeakers.includes(msg.senderId)) {
                     badgeHtml = `<span class="bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Speaker</span>`;
                 }
 
                 msgEl.innerHTML = `
-                    <img src="${escapeHTML(msg.senderPhoto)}" data-action-uid="${msg.senderId}" data-action-name="${escapeHTML(msg.senderName)}" class="user-avatar w-10 h-10 rounded-full object-cover flex-shrink-0 border border-x-gray ${isHost && msg.senderId !== currentUser.uid ? 'cursor-pointer hover:opacity-80 ring-2 ring-transparent hover:ring-x-blue transition' : ''}">
+                    <img src="${escapeHTML(msg.senderPhoto)}" data-action-uid="${msg.senderId}" data-action-name="${escapeHTML(msg.senderName)}" class="user-avatar w-10 h-10 rounded-full object-cover flex-shrink-0 border border-x-gray ${isHost && msg.senderId !== currentUser.uid && !isMsgSuperAdmin ? 'cursor-pointer hover:opacity-80 ring-2 ring-transparent hover:ring-x-blue transition' : ''}">
                     <div class="flex-1 min-w-0 pb-1">
                         <div class="flex items-center space-x-1.5 flex-wrap">
                             <span class="font-bold text-white text-[15px]">${escapeHTML(msg.senderName)}</span>
